@@ -1,156 +1,163 @@
-<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-<script type="text/javascript">
-    const SOURCE = "https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-andamento-nazionale/dpc-covid19-ita-andamento-nazionale.csv";
-    const SOURCE_REGION = "https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-regioni/dpc-covid19-ita-regioni.csv";
+<html>
+    <head>
+        <title>easy-covid-stats</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
 
-    // http://techslides.com/convert-csv-to-json-in-javascript
-    function csvJSON(csv){
-        var lines=csv.split("\n");
-        var result = [];
-        var headers=lines[0].split(",");
-        for(var i=1;i<lines.length;i++){
-            var obj = {};
-            if (!lines[i]) continue;
-            var currentline=lines[i].split(",");
-            for(var j=0;j<headers.length;j++){
-                obj[headers[j]] = currentline[j];
+    <body>
+        <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+        <script type="text/javascript">
+            const SOURCE = "https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-andamento-nazionale/dpc-covid19-ita-andamento-nazionale.csv";
+            const SOURCE_REGION = "https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-regioni/dpc-covid19-ita-regioni.csv";
+        
+            // http://techslides.com/convert-csv-to-json-in-javascript
+            function csvJSON(csv){
+                var lines=csv.split("\n");
+                var result = [];
+                var headers=lines[0].split(",");
+                for(var i=1;i<lines.length;i++){
+                    var obj = {};
+                    if (!lines[i]) continue;
+                    var currentline=lines[i].split(",");
+                    for(var j=0;j<headers.length;j++){
+                        obj[headers[j]] = currentline[j];
+                    }
+                    result.push(obj);
+                }
+                return result;
             }
-            result.push(obj);
-        }
-        return result;
-    }
-
-
-    google.charts.load('current', {'packages':['corechart']});
-    google.charts.setOnLoadCallback(drawCharts);
-
-    function loadData(region) {
-        const url = region ? SOURCE_REGION : SOURCE;
-        console.log(url)
-        return fetch(url)
-        .then(response => response.text())
-        .then(data => {
-            let jsonData = csvJSON(data);
-
-            // filter data
-            if (region) {
-                jsonData = jsonData.filter(row => row['denominazione_regione'] == region);
+        
+        
+            google.charts.load('current', {'packages':['corechart']});
+            google.charts.setOnLoadCallback(drawCharts);
+        
+            function loadData(region) {
+                const url = region ? SOURCE_REGION : SOURCE;
+                console.log(url)
+                return fetch(url)
+                .then(response => response.text())
+                .then(data => {
+                    let jsonData = csvJSON(data);
+        
+                    // filter data
+                    if (region) {
+                        jsonData = jsonData.filter(row => row['denominazione_regione'] == region);
+                    }
+        
+                    const days = parseInt(document.getElementById("days").value);
+                    jsonData = jsonData.slice(jsonData.length - days);
+        
+                    return jsonData;
+                });
             }
-
-            const days = parseInt(document.getElementById("days").value);
-            jsonData = jsonData.slice(jsonData.length - days);
-
-            return jsonData;
-        });
-    }
-
-    function drawCharts() {
-        const region = document.getElementById("region").value;
-
-        loadData(region)
-        .then(jsonData => {
-            // nuovi_positivi
-            drawChart(jsonData, 'nuovi_positivi', (row) => parseInt(row['nuovi_positivi']));
-
-            // nuovi_casi_testati
-            let lastTotalTested = NaN;
-            drawChart(jsonData, 'nuovi_casi_testati', (row) => {
-                const totalTested = parseInt(row['casi_testati']);
-                if (!totalTested) {
-                    return NaN;
-                }
-                if (!lastTotalTested) {
-                    lastTotalTested = totalTested;
-                    return NaN;
-                }
-                const newTested = totalTested - lastTotalTested;
-                lastTotalTested = totalTested;
-                return newTested;
-            });
-
-
-            // percentuale casi testati e nuovi positivi
-            lastTotalTested = NaN;
-            drawChart(jsonData, 'percentuale_positivi', (row) => {
-                const totalTested = parseInt(row['casi_testati']);
-                if (!totalTested) {
-                    return NaN;
-                }
-                if (!lastTotalTested) {
-                    lastTotalTested = totalTested;
-                    return NaN;
-                }
-                const newTested = totalTested - lastTotalTested;
-                lastTotalTested = totalTested;
-                const newPositive = parseInt(row['nuovi_positivi']);
-                return (newPositive / newTested) * 100;
-            });
-
-            // nuovi_deceduti
-            let lastTotalDead = NaN;
-            drawChart(jsonData, 'nuovi_deceduti', (row) => {
-                const totalDead = parseInt(row['deceduti']);
-                if (!lastTotalDead) {
-                    lastTotalDead = totalDead;
-                    return NaN;
-                }
-                const newDead = totalDead - lastTotalDead;
-                lastTotalDead = totalDead;
-                return newDead;
-            });
-
-            // totale_ospedalizzati
-            drawChart(jsonData, 'totale_ospedalizzati', (row) => parseInt(row['totale_ospedalizzati']));
-        });
-    }
-
-    function drawChart(jsonData, target, getValue) {
-        var dt = new google.visualization.DataTable();
-        dt.addColumn('date', 'X');
-        dt.addColumn('number', 'Y');
-
-        let lastDate = "";
-        let last = 0;
-        const rows = jsonData.map(row => {
-            lastDate = new Date(row['data']);
-            last = getValue(row);
-            return [
-                lastDate,
-                last
-            ];
-        });
-        dt.addRows(rows);
-
-        drawChartDataTable(dt, `${target} (${last})`, target);
-    }
-
-    function drawChartDataTable(datatable, title, target) {
-        var options = {
-            title: title,
-            hAxis: { slantedText:true, slantedTextAngle:90 },
-            legend: {position: 'none'},
-        };
-
-        var chart = new google.visualization.LineChart(document.getElementById(target));
-        chart.draw(datatable, options);        
-    }
-</script>
-
-<body>
-    <h1>easy-covid-stats</h1>
-    <p>Original data: https://github.com/pcm-dpc/COVID-19</p>
-    <label>Days<input id="days" type="number" min="10" max="356" value="180" onchange="drawCharts()" /></label>
-    <label>Region
-        <select id="region" onchange="drawCharts()">
-            <option value="">-tutte-</option>
-            <option value="Piemonte">Piemonte</option>
-            <option value="Lombardia">Lombardia</option>
-        </select>
-    </label>
-
-    <div id="nuovi_positivi" style="width: 100%;height: 100%"></div>
-    <div id="nuovi_casi_testati" style="width: 100%; height: 100%"></div>
-    <div id="percentuale_positivi" style="width: 100%; height: 100%"></div>
-    <div id="nuovi_deceduti" style="width: 100%; height: 100%"></div>
-    <div id="totale_ospedalizzati" style="width: 100%; height: 100%"></div>
-</body>
+        
+            function drawCharts() {
+                const region = document.getElementById("region").value;
+        
+                loadData(region)
+                .then(jsonData => {
+                    // nuovi_positivi
+                    drawChart(jsonData, 'nuovi_positivi', (row) => parseInt(row['nuovi_positivi']));
+        
+                    // nuovi_casi_testati
+                    let lastTotalTested = NaN;
+                    drawChart(jsonData, 'nuovi_casi_testati', (row) => {
+                        const totalTested = parseInt(row['casi_testati']);
+                        if (!totalTested) {
+                            return NaN;
+                        }
+                        if (!lastTotalTested) {
+                            lastTotalTested = totalTested;
+                            return NaN;
+                        }
+                        const newTested = totalTested - lastTotalTested;
+                        lastTotalTested = totalTested;
+                        return newTested;
+                    });
+        
+        
+                    // percentuale casi testati e nuovi positivi
+                    lastTotalTested = NaN;
+                    drawChart(jsonData, 'percentuale_positivi', (row) => {
+                        const totalTested = parseInt(row['casi_testati']);
+                        if (!totalTested) {
+                            return NaN;
+                        }
+                        if (!lastTotalTested) {
+                            lastTotalTested = totalTested;
+                            return NaN;
+                        }
+                        const newTested = totalTested - lastTotalTested;
+                        lastTotalTested = totalTested;
+                        const newPositive = parseInt(row['nuovi_positivi']);
+                        return (newPositive / newTested) * 100;
+                    });
+        
+                    // nuovi_deceduti
+                    let lastTotalDead = NaN;
+                    drawChart(jsonData, 'nuovi_deceduti', (row) => {
+                        const totalDead = parseInt(row['deceduti']);
+                        if (!lastTotalDead) {
+                            lastTotalDead = totalDead;
+                            return NaN;
+                        }
+                        const newDead = totalDead - lastTotalDead;
+                        lastTotalDead = totalDead;
+                        return newDead;
+                    });
+        
+                    // totale_ospedalizzati
+                    drawChart(jsonData, 'totale_ospedalizzati', (row) => parseInt(row['totale_ospedalizzati']));
+                });
+            }
+        
+            function drawChart(jsonData, target, getValue) {
+                var dt = new google.visualization.DataTable();
+                dt.addColumn('date', 'X');
+                dt.addColumn('number', 'Y');
+        
+                let lastDate = "";
+                let last = 0;
+                const rows = jsonData.map(row => {
+                    lastDate = new Date(row['data']);
+                    last = getValue(row);
+                    return [
+                        lastDate,
+                        last
+                    ];
+                });
+                dt.addRows(rows);
+        
+                drawChartDataTable(dt, `${target} (${last})`, target);
+            }
+        
+            function drawChartDataTable(datatable, title, target) {
+                var options = {
+                    title: title,
+                    hAxis: { slantedText:true, slantedTextAngle:90 },
+                    legend: {position: 'none'},
+                };
+        
+                var chart = new google.visualization.LineChart(document.getElementById(target));
+                chart.draw(datatable, options);        
+            }
+        </script>
+        
+        <h1>easy-covid-stats</h1>
+        <p>Original data: https://github.com/pcm-dpc/COVID-19</p>
+        <label>Days<input id="days" type="number" min="10" max="356" value="180" onchange="drawCharts()" /></label>
+        <label>Region
+            <select id="region" onchange="drawCharts()">
+                <option value="">-tutte-</option>
+                <option value="Piemonte">Piemonte</option>
+                <option value="Lombardia">Lombardia</option>
+            </select>
+        </label>
+    
+        <div id="nuovi_positivi" style="width: 100%;height: 100%"></div>
+        <div id="nuovi_casi_testati" style="width: 100%; height: 100%"></div>
+        <div id="percentuale_positivi" style="width: 100%; height: 100%"></div>
+        <div id="nuovi_deceduti" style="width: 100%; height: 100%"></div>
+        <div id="totale_ospedalizzati" style="width: 100%; height: 100%"></div>
+    </body>    
+</html>
