@@ -2,6 +2,11 @@
     <head>
         <title>easy-covid-stats</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            .charts > div {
+                height: 600px;
+            }
+        </style>
     </head>
 
     <body>
@@ -56,6 +61,8 @@
         
                 loadData(region)
                 .then(jsonData => {
+                    document.getElementById("last_update").innerText = jsonData[jsonData.length - 1]["data"];
+
                     // nuovi_positivi
                     drawChart(jsonData, 'nuovi_positivi', (row) => parseInt(row['nuovi_positivi']));
         
@@ -108,6 +115,10 @@
         
                     // totale_ospedalizzati
                     drawChart(jsonData, 'totale_ospedalizzati', (row) => parseInt(row['totale_ospedalizzati']));
+
+                    // terapia_intensiva
+                    drawChart(jsonData, 'totale_terapia_intensiva', (row) => parseInt(row['terapia_intensiva']));
+                    
                 });
             }
         
@@ -144,8 +155,9 @@
         </script>
         
         <h1>easy-covid-stats</h1>
-        <p>Original data: https://github.com/pcm-dpc/COVID-19</p>
-        <label>Days<input id="days" type="number" min="10" max="356" value="180" onchange="drawCharts()" /></label>
+        <p>Original data: <a href="https://github.com/pcm-dpc/COVID-19">Protezione Civile</a></p>
+        <p>Last update: <span id="last_update"></span> </p>
+        <label>Days<input id="days" type="number" min="10" max="356" value="90" onchange="drawCharts()" /></label>
         <label>Region
             <select id="region" onchange="drawCharts()">
                 <option value="">-tutte-</option>
@@ -154,10 +166,13 @@
             </select>
         </label>
     
-        <div id="nuovi_positivi" style="width: 100%;height: 100%"></div>
-        <div id="nuovi_casi_testati" style="width: 100%; height: 100%"></div>
-        <div id="percentuale_positivi" style="width: 100%; height: 100%"></div>
-        <div id="nuovi_deceduti" style="width: 100%; height: 100%"></div>
-        <div id="totale_ospedalizzati" style="width: 100%; height: 100%"></div>
+        <div class="charts">
+            <div id="nuovi_positivi"></div>
+            <div id="nuovi_casi_testati"></div>
+            <div id="percentuale_positivi"></div>
+            <div id="nuovi_deceduti"></div>
+            <div id="totale_ospedalizzati"></div>
+            <div id="totale_terapia_intensiva"></div>
+        </div>
     </body>    
 </html>
